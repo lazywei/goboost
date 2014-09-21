@@ -24,7 +24,7 @@ func NewDecisionStump(nSteps int) *DecisionStump {
 	return &DecisionStump{nSteps: nSteps, ineqs: [2]int{LT, GT}}
 }
 
-func (ds *DecisionStump) Fit(X *mat64.Dense, y []int) error {
+func (ds *DecisionStump) Fit(X *mat64.Dense, y []int, sampleWeight []float64) error {
 	nSamples, nFeatures := X.Dims()
 
 	if nSamples != len(y) {
@@ -43,7 +43,7 @@ func (ds *DecisionStump) Fit(X *mat64.Dense, y []int) error {
 				threshVal := rangeMin + float64(step)*stepSize
 				yPred := predictByThresh(col, threshVal, ineq)
 
-				errRate := getErrRate(y, yPred)
+				errRate := ErrRate(y, yPred, sampleWeight)
 
 				if errRate <= minErr {
 					ds.dim = i
@@ -61,6 +61,19 @@ func (ds *DecisionStump) Fit(X *mat64.Dense, y []int) error {
 
 func (ds *DecisionStump) Predict(X *mat64.Dense) []int {
 	return predictByThresh(X.Col(nil, ds.dim), ds.threshVal, ds.threshIneq)
+}
+
+func ErrRate(yTrue, yPred []int, sampleWeight []float64) float64 {
+	totalWeight := 0.0
+	sum := 0.0
+	for i := 0; i < len(yTrue); i++ {
+		totalWeight += sampleWeight[i]
+		if yTrue[i] != yPred[i] {
+			sum += sampleWeight[i]
+		}
+	}
+
+	return sum / totalWeight
 }
 
 func rangeMinMax(col []float64) (min, max float64) {
@@ -99,15 +112,4 @@ func predictByThresh(col []float64, threshVal float64, ineq int) []int {
 	}
 
 	return yPred
-}
-
-func getErrRate(yTrue, yPred []int) float64 {
-	tmp := 0
-	for i := 0; i < len(yTrue); i++ {
-		if yTrue[i] != yPred[i] {
-			tmp = tmp + 1
-		}
-	}
-
-	return float64(tmp) / float64(len(yTrue))
 }
